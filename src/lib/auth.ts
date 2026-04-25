@@ -4,13 +4,25 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { z } from "zod";
 import { canReachDatabase } from "@/lib/db-health";
-import { getServerEnv } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8)
 });
+
+function getNextAuthSecret() {
+  const secret = process.env.NEXTAUTH_SECRET;
+  if (secret) return secret;
+
+  // `next build` imports authOptions while collecting static page data, including 404 pages.
+  // Do not require DATABASE_URL just to render logged-out navigation during build.
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return "gencode-build-time-nextauth-placeholder-do-not-use-at-runtime";
+  }
+
+  return undefined;
+}
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -70,7 +82,7 @@ export const authOptions: NextAuthOptions = {
       return session;
     }
   },
-  secret: getServerEnv().NEXTAUTH_SECRET
+  secret: getNextAuthSecret()
 };
 
 export function isAdmin(session: { user?: { role?: string | null } } | null) {
