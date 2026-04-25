@@ -1,0 +1,56 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gencode-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: gencode
+      POSTGRES_USER: gencode
+      POSTGRES_PASSWORD: gencode
+    ports:
+      - "55432:5432"
+    volumes:
+      - gencode-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gencode -d gencode"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gencode-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://gencode:gencode@postgres:5432/gencode?schema=public
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: tJZxvxk6huvZx988F6rYllQC9MAd3n0vKh25VbanSCIXDN4jEBH+GHbtoFU3jwwe
+      ASSISTANT_PROVIDER: mock
+      RUNNER_PROVIDER: mock
+      LOG_LEVEL: info
+    ports:
+      - "3000:3000"
+    command: sh -c "npx prisma migrate deploy && npm run start"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  runner:
+    build:
+      context: .
+      dockerfile: runner/Dockerfile.runner
+    container_name: gencode-runner
+    profiles: ["runner"]
+    environment:
+      RUNNER_JOB_SECRET: local-runner-secret
+    ports:
+      - "8787:8787"
+
+volumes:
+  gencode-postgres:

@@ -1,0 +1,45 @@
+name: Gencode CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: gencode
+          POSTGRES_USER: gencode
+          POSTGRES_PASSWORD: gencode
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U gencode -d gencode"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://gencode:gencode@localhost:55432/gencode?schema=public
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: 8lJ0gVh8R5LPSmUo7LxwV3W9rYyT3mQq2ZpSxN8aK4bF6dH1cE7tP9uM5nB2sQ0
+      ASSISTANT_PROVIDER: mock
+      RUNNER_PROVIDER: mock
+      LOG_LEVEL: warn
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run db:deploy
+      - run: npm run db:seed
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
