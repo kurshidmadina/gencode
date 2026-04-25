@@ -378,6 +378,11 @@ export default async function LandingPage() {
                 <CardTitle>Pricing-ready</CardTitle>
                 <CardDescription>Free training now, ready for team plans, interview packs, private leaderboards, and enterprise analytics.</CardDescription>
               </CardHeader>
+              <CardContent>
+                <Button asChild variant="secondary">
+                  <Link href="/pricing">View launch pricing</Link>
+                </Button>
+              </CardContent>
             </Card>
           </div>
         </section>
@@ -432,8 +437,17 @@ export default async function LandingPage() {
           </div>
         </section>
       </main>
-      <footer className="border-t border-white/10 px-4 py-8 text-center text-sm text-slate-500">
-        Gencode is built for secure technical growth: no arbitrary code execution in the app process, no client secrets, and a Docker-isolated runner path for production.
+      <footer className="border-t border-white/10 px-4 py-8 text-sm text-slate-500">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            Gencode is built for secure technical growth: no arbitrary code execution in the app process, no client secrets, and a Docker-isolated runner path for production.
+          </p>
+          <div className="flex flex-wrap gap-4 font-bold text-slate-300">
+            <Link href="/about" className="hover:text-cyan-100">About</Link>
+            <Link href="/pricing" className="hover:text-cyan-100">Pricing</Link>
+            <Link href="/demo" className="hover:text-cyan-100">Demo</Link>
+          </div>
+        </div>
       </footer>
     </AppFrame>
   );

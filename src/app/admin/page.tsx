@@ -52,6 +52,9 @@ export default async function AdminPage() {
           </div>
           <div className="flex gap-2">
             <Button asChild variant="secondary"><Link href="/admin/challenges">Manage Challenges</Link></Button>
+            <Button asChild variant="secondary"><Link href="/admin/paths">Paths</Link></Button>
+            <Button asChild variant="secondary"><Link href="/admin/boss-battles">Bosses</Link></Button>
+            <Button asChild variant="secondary"><Link href="/admin/quests">Quests</Link></Button>
             <Button asChild variant="secondary"><Link href="/admin/users">Manage Users</Link></Button>
             <Button asChild variant="secondary"><Link href="/admin/submissions">Submissions</Link></Button>
             <Button asChild variant="secondary"><Link href="/admin/analytics">Analytics</Link></Button>

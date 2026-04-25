@@ -38,6 +38,7 @@ Contributors and coding agents should follow [AGENTS.md](./AGENTS.md) before cha
 - Voice input and speech output where browser APIs are available
 - WebXR-ready VR page with fallback 3D coding room
 - Admin dashboard, challenge management surface, user management surface
+- Admin operations for learning paths, boss battles, quests, users, submissions, analytics, and challenge content
 - Global leaderboard, public profile route, settings route, 404 page
 
 ## Local Setup
@@ -193,6 +194,7 @@ Supported command examples include "read the problem", "give me a hint", "run my
 ## Key Routes
 
 - `/` landing page
+- `/about`, `/pricing`
 - `/onboarding`, `/onboarding/calibration`, `/onboarding/path`
 - `/dashboard`
 - `/paths`, `/paths/[slug]`
@@ -204,7 +206,7 @@ Supported command examples include "read the problem", "give me a hint", "run my
 - `/leaderboard`
 - `/profile`, `/profile/[username]`, `/u/[username]`
 - `/vr`
-- `/admin`, `/admin/challenges`, `/admin/users`, `/admin/submissions`, `/admin/analytics`
+- `/admin`, `/admin/challenges`, `/admin/paths`, `/admin/boss-battles`, `/admin/quests`, `/admin/users`, `/admin/submissions`, `/admin/analytics`
 - APIs include `/api/arena/runs`, `/api/boss-battles/[slug]/progress`, `/api/onboarding/calibration`, and challenge run/submit/hint routes.
 
 ## Documentation
@@ -215,7 +217,28 @@ Supported command examples include "read the problem", "give me a hint", "run my
 - [AI Assistant](docs/AI_ASSISTANT.md)
 - [VR Mode](docs/VR_MODE.md)
 - [Security](docs/SECURITY.md)
+- [Deployment](docs/DEPLOYMENT.md)
 - [Roadmap](docs/ROADMAP.md)
+
+## Vercel Deployment
+
+Set production and preview environment variables before deploying:
+
+```bash
+DATABASE_URL="postgresql://user:password@host:5432/database?schema=public"
+NEXTAUTH_SECRET="generate-with-openssl-rand-base64-48"
+NEXTAUTH_URL="https://your-vercel-domain.vercel.app"
+ASSISTANT_PROVIDER="mock"
+RUNNER_PROVIDER="mock"
+```
+
+Then apply migrations against the target database:
+
+```bash
+npm run db:deploy
+```
+
+See [Deployment](docs/DEPLOYMENT.md) for Vercel preview/production promotion, environment variable behavior, and runner deployment notes.
 
 ## Security Notes
 
