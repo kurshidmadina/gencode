@@ -62,6 +62,37 @@ enum QuestCadence {
   WEEKLY
 }
 
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+  CUSTOM
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+  INCOMPLETE_EXPIRED
+  UNPAID
+  PAUSED
+}
+
+enum TeamRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum SalesLeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  WON
+  LOST
+}
+
 model User {
   id                   String                     @id @default(cuid())
   name                 String?
@@ -105,6 +136,13 @@ model User {
   arenaRuns            ArenaRun[]
   bossStageAttempts    BossBattleStageAttempt[]
   usageEvents          UsageEvent[]
+  subscriptions        UserSubscription[]
+  usageCounters        UsageCounter[]
+  billingEvents        BillingEvent[]
+  ownedTeams           Team[]                     @relation("TeamOwner")
+  teamMemberships      TeamMember[]
+  invoiceRecords       InvoiceRecord[]
+  salesLeads           SalesLead[]
 
   @@index([role])
   @@index([xp])
@@ -844,5 +882,161 @@ model UsageEvent {
   @@index([userId])
   @@index([event])
   @@index([entityType])
+  @@index([createdAt])
+}
+
+model SubscriptionPlan {
+  id                  String             @id
+  slug                String             @unique
+  name                String
+  description         String             @db.Text
+  monthlyPrice        Int?
+  yearlyPrice         Int?
+  currency            String             @default("usd")
+  stripeMonthlyPriceId String?
+  stripeYearlyPriceId  String?
+  active              Boolean            @default(true)
+  metadata            Json?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  subscriptions       UserSubscription[]
+  teams               Team[]
+
+  @@index([active])
+  @@index([slug])
+}
+
+model UserSubscription {
+  id                   String             @id @default(cuid())
+  userId               String
+  planId               String
+  status               SubscriptionStatus @default(ACTIVE)
+  billingInterval      BillingInterval    @default(MONTHLY)
+  stripeCustomerId     String?
+  stripeSubscriptionId String?            @unique
+  stripePriceId        String?
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+  trialEndsAt          DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                 SubscriptionPlan   @relation(fields: [planId], references: [id])
+
+  @@index([userId])
+  @@index([planId])
+  @@index([status])
+  @@index([stripeCustomerId])
+  @@index([stripeSubscriptionId])
+  @@index([currentPeriodEnd])
+}
+
+model BillingEvent {
+  id            String   @id @default(cuid())
+  userId        String?
+  stripeEventId String   @unique
+  type          String
+  payload       Json
+  processedAt   DateTime?
+  createdAt     DateTime @default(now())
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([type])
+  @@index([processedAt])
+  @@index([createdAt])
+}
+
+model UsageCounter {
+  id                    String   @id @default(cuid())
+  userId                String
+  periodKey             String
+  challengesAttempted   Int      @default(0)
+  challengesCompleted   Int      @default(0)
+  genieMessagesUsed     Int      @default(0)
+  vrSessionsUsed        Int      @default(0)
+  arenaRunsUsed         Int      @default(0)
+  bossBattlesAttempted  Int      @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, periodKey])
+  @@index([userId])
+  @@index([periodKey])
+  @@index([updatedAt])
+}
+
+model Team {
+  id                   String           @id @default(cuid())
+  name                 String
+  ownerId              String
+  planId               String
+  stripeCustomerId     String?
+  stripeSubscriptionId String?          @unique
+  seatLimit            Int              @default(3)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  owner                User             @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  plan                 SubscriptionPlan @relation(fields: [planId], references: [id])
+  members              TeamMember[]
+
+  @@index([ownerId])
+  @@index([planId])
+  @@index([stripeCustomerId])
+  @@index([stripeSubscriptionId])
+  @@index([createdAt])
+}
+
+model TeamMember {
+  id       String   @id @default(cuid())
+  teamId   String
+  userId   String
+  role     TeamRole @default(MEMBER)
+  joinedAt DateTime @default(now())
+  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([teamId])
+  @@index([userId])
+  @@index([role])
+}
+
+model InvoiceRecord {
+  id               String   @id @default(cuid())
+  userId           String
+  stripeInvoiceId  String   @unique
+  amountPaid       Int      @default(0)
+  currency         String   @default("usd")
+  status           String
+  hostedInvoiceUrl String?
+  createdAt        DateTime @default(now())
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model SalesLead {
+  id           String          @id @default(cuid())
+  userId       String?
+  name         String
+  email        String
+  organization String?
+  teamSize     Int?
+  useCase      String
+  message      String          @db.Text
+  source       String          @default("contact-sales")
+  status       SalesLeadStatus @default(NEW)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  user         User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([email])
+  @@index([status])
   @@index([createdAt])
 }

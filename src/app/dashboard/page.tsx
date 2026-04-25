@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Activity, BadgeCheck, BrainCircuit, Coins, Flame, Gauge, Radar, Route, Sparkles, Target, Trophy, WandSparkles } from "lucide-react";
 import { AppFrame } from "@/components/layout/app-frame";
 import { GeniePanel } from "@/components/genie/genie-panel";
+import { PlanBadge } from "@/components/billing/plan-badge";
+import { UsageMeter } from "@/components/billing/usage-meter";
 import { ProductLoopBriefing } from "@/components/progression/product-loop-briefing";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { authOptions } from "@/lib/auth";
 import { buildProductLoopBriefing } from "@/lib/game/product-loop";
+import { getUserBillingSnapshot } from "@/lib/billing/usage";
 import { getDashboardStats } from "@/lib/repositories/dashboard";
 import { formatNumber } from "@/lib/utils";
 
@@ -21,6 +24,7 @@ export const metadata = {
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions).catch(() => null);
   const stats = await getDashboardStats(session?.user?.id);
+  const billing = await getUserBillingSnapshot(session?.user?.id);
   const productLoop = buildProductLoopBriefing(stats);
 
   return (
@@ -62,6 +66,9 @@ export default async function DashboardPage() {
                   Enter Immersive Mode
                 </Link>
               </Button>
+              <Button asChild variant="gold">
+                <Link href="/pricing">Upgrade Arena</Link>
+              </Button>
             </div>
           </div>
 
@@ -90,6 +97,25 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
         </section>
+
+        <Card className="border-yellow-300/25 bg-yellow-300/8">
+          <CardContent className="grid gap-4 p-5 lg:grid-cols-[260px_1fr_auto] lg:items-center">
+            <div>
+              <div className="text-xs font-black uppercase tracking-[0.22em] text-yellow-100">Current access tier</div>
+              <div className="mt-2 flex items-center gap-2">
+                <PlanBadge planId={billing.plan.id} />
+                <span className="text-sm text-slate-300">{billing.plan.upgradeMessage}</span>
+              </div>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <UsageMeter label="Genie today" used={billing.dailyUsage.genieMessagesUsed} limit={billing.entitlements.genieDailyMessageLimit} />
+              <UsageMeter label="Challenges this month" used={billing.monthlyUsage.challengesAttempted} limit={billing.entitlements.monthlyChallengeLimit} />
+            </div>
+            <Button asChild variant="gold">
+              <Link href="/settings/billing">Billing Deck</Link>
+            </Button>
+          </CardContent>
+        </Card>
 
         <ProductLoopBriefing briefing={productLoop} />
 

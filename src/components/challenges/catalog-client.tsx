@@ -129,6 +129,7 @@ export function CatalogClient({
                 challenge={challenge}
                 locked={accessBySlug[challenge.slug]?.locked ?? false}
                 lockReason={accessBySlug[challenge.slug]?.reason}
+                upgradeHref={accessBySlug[challenge.slug]?.upgradeHref}
               />
             ))}
           </div>

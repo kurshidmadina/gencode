@@ -1,4 +1,8 @@
 import { canReachDatabase } from "@/lib/db-health";
+import { canAccessDifficulty, getUpgradeRecommendation } from "@/lib/billing/entitlements";
+import { getUserBillingSnapshot } from "@/lib/billing/usage";
+import type { PlanEntitlements } from "@/lib/billing/plans";
+import type { PlanId } from "@/lib/billing/plans";
 import { canUnlockDifficulty } from "@/lib/game/progression";
 import type { Difficulty, GeneratedChallenge } from "@/lib/game/types";
 import { prisma } from "@/lib/prisma";
@@ -8,28 +12,64 @@ export type ChallengeAccessState = {
   reason: string;
   missingPrerequisites: string[];
   completedByDifficulty: Partial<Record<Difficulty, number>>;
+  planId?: PlanId;
+  upgradeHref?: string;
+};
+
+type BillingAccessSnapshot = {
+  plan: { id: PlanId; displayName: string };
+  entitlements: Pick<PlanEntitlements, "monthlyChallengeLimit">;
+  monthlyUsage: { challengesAttempted: number };
 };
 
 export function getChallengeAccessState({
   challenge,
   completedByDifficulty = {},
   completedSlugs = new Set<string>(),
-  authenticated = false
+  authenticated = false,
+  billing
 }: {
   challenge: GeneratedChallenge;
   completedByDifficulty?: Partial<Record<Difficulty, number>>;
   completedSlugs?: Set<string>;
   authenticated?: boolean;
+  billing?: BillingAccessSnapshot;
 }): ChallengeAccessState {
   const missingPrerequisites = challenge.prerequisites.filter((slug) => !completedSlugs.has(slug));
   const difficultyUnlocked = canUnlockDifficulty(challenge.difficulty, completedByDifficulty);
+  const planId = billing?.plan.id ?? "free";
 
   if (!authenticated && challenge.difficulty !== "EASY") {
     return {
       locked: true,
       reason: "Log in and clear the lower tiers to unlock this mission.",
       missingPrerequisites,
-      completedByDifficulty
+      completedByDifficulty,
+      planId
+    };
+  }
+
+  if (!canAccessDifficulty(planId, challenge.difficulty)) {
+    const upgrade = getUpgradeRecommendation(planId, "difficulty", challenge.difficulty);
+    return {
+      locked: true,
+      reason: `${upgrade.recommendedPlan.displayName} required for ${challenge.difficulty} missions. ${upgrade.recommendedPlan.upgradeMessage}`,
+      missingPrerequisites,
+      completedByDifficulty,
+      planId,
+      upgradeHref: upgrade.href
+    };
+  }
+
+  if (billing?.entitlements.monthlyChallengeLimit !== null && billing && billing.monthlyUsage.challengesAttempted >= billing.entitlements.monthlyChallengeLimit) {
+    const upgrade = getUpgradeRecommendation(planId, "challenge-limit");
+    return {
+      locked: true,
+      reason: `Monthly challenge limit reached on ${billing.plan.displayName}. ${upgrade.recommendedPlan.displayName} unlocks more training volume.`,
+      missingPrerequisites,
+      completedByDifficulty,
+      planId,
+      upgradeHref: upgrade.href
     };
   }
 
@@ -38,7 +78,8 @@ export function getChallengeAccessState({
       locked: true,
       reason: `Complete enough ${Object.keys(challenge.unlockRules.requiredCompletions).join(", ") || "lower-tier"} missions to unlock ${challenge.difficulty}.`,
       missingPrerequisites,
-      completedByDifficulty
+      completedByDifficulty,
+      planId
     };
   }
 
@@ -47,7 +88,8 @@ export function getChallengeAccessState({
       locked: true,
       reason: `Clear ${missingPrerequisites.length} prerequisite mission${missingPrerequisites.length === 1 ? "" : "s"} first.`,
       missingPrerequisites,
-      completedByDifficulty
+      completedByDifficulty,
+      planId
     };
   }
 
@@ -55,7 +97,8 @@ export function getChallengeAccessState({
     locked: false,
     reason: "Mission unlocked.",
     missingPrerequisites: [],
-    completedByDifficulty
+    completedByDifficulty,
+    planId
   };
 }
 
@@ -77,11 +120,13 @@ export async function getUserChallengeAccess(userId: string | undefined, challen
     }, {});
     const completedSlugs = new Set(completed.map((item) => item.challenge.slug));
 
+    const billing = await getUserBillingSnapshot(userId);
     return getChallengeAccessState({
       challenge,
       completedByDifficulty,
       completedSlugs,
-      authenticated: true
+      authenticated: true,
+      billing
     });
   } catch {
     return getChallengeAccessState({ challenge, authenticated: true });
@@ -90,9 +135,8 @@ export async function getUserChallengeAccess(userId: string | undefined, challen
 
 export async function getUserChallengeAccessMap(userId: string | undefined, challenges: GeneratedChallenge[]) {
   if (!userId || !(await canReachDatabase())) {
-    return Object.fromEntries(
-      challenges.map((challenge) => [challenge.slug, getChallengeAccessState({ challenge, authenticated: Boolean(userId) })])
-    );
+    const billing = await getUserBillingSnapshot(userId);
+    return Object.fromEntries(challenges.map((challenge) => [challenge.slug, getChallengeAccessState({ challenge, authenticated: Boolean(userId), billing })]));
   }
 
   try {
@@ -107,10 +151,11 @@ export async function getUserChallengeAccessMap(userId: string | undefined, chal
     }, {});
     const completedSlugs = new Set(completed.map((item) => item.challenge.slug));
 
+    const billing = await getUserBillingSnapshot(userId);
     return Object.fromEntries(
       challenges.map((challenge) => [
         challenge.slug,
-        getChallengeAccessState({ challenge, completedByDifficulty, completedSlugs, authenticated: true })
+        getChallengeAccessState({ challenge, completedByDifficulty, completedSlugs, authenticated: true, billing })
       ])
     );
   } catch {

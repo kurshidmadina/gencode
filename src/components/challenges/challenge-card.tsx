@@ -16,12 +16,14 @@ export function ChallengeCard({
   challenge,
   status = "NOT_STARTED",
   locked = false,
-  lockReason
+  lockReason,
+  upgradeHref
 }: {
   challenge: GeneratedChallenge;
   status?: ProgressStatus;
   locked?: boolean;
   lockReason?: string;
+  upgradeHref?: string;
 }) {
   const card = (
     <Card className={`group h-full transition ${locked ? "border-white/8 bg-slate-950/70 opacity-80" : "hover:border-cyan-300/40 hover:bg-slate-900/82 hover:shadow-neon"}`}>
@@ -77,7 +79,16 @@ export function ChallengeCard({
               {locked ? "Preview locked" : status.replaceAll("_", " ")}
             </span>
           </div>
-          {locked ? <p className="text-xs leading-5 text-yellow-100">{lockReason ?? "Clear prerequisite missions to unlock this card."}</p> : null}
+          {locked ? (
+            <div className="grid gap-2">
+              <p className="text-xs leading-5 text-yellow-100">{lockReason ?? "Clear prerequisite missions to unlock this card."}</p>
+              {upgradeHref ? (
+                <Link href={upgradeHref} className="text-xs font-black uppercase tracking-[0.14em] text-cyan-100 hover:text-white">
+                  View upgrade path
+                </Link>
+              ) : null}
+            </div>
+          ) : null}
           <div className="flex items-center justify-between text-sm font-black text-white">
             <span>{locked ? "Unlock route first" : "Enter mission"}</span>
             <ArrowRight className="h-4 w-4 text-cyan-100 transition group-hover:translate-x-1" />

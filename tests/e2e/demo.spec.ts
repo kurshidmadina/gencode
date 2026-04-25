@@ -36,7 +36,7 @@ test("seeded admin can open the admin command center", async ({ page }) => {
   await expect(page.getByRole("link", { name: /Manage Challenges/i })).toBeVisible();
   await expect(page.getByRole("link", { name: /Submissions/i })).toBeVisible();
 
-  for (const path of ["/admin/paths", "/admin/boss-battles", "/admin/quests"]) {
+  for (const path of ["/admin/paths", "/admin/boss-battles", "/admin/quests", "/admin/billing", "/admin/sales-leads"]) {
     await page.goto(path, { waitUntil: "domcontentloaded" });
     await expect(page.locator("h1")).toBeVisible();
   }

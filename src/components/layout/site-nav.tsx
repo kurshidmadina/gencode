@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth";
-import { Code2, Gauge, LogIn, Map, Route, Shield, ShoppingBag, Sparkles, Swords, Trophy, UserRound, WandSparkles } from "lucide-react";
+import { Code2, CreditCard, Gauge, LogIn, Map, Route, Shield, ShoppingBag, Sparkles, Swords, Trophy, UserRound, Users, WandSparkles } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 
@@ -14,7 +14,9 @@ const links = [
   { href: "/map", label: "Map", icon: Map },
   { href: "/shop", label: "Shop", icon: ShoppingBag },
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
-  { href: "/vr", label: "VR", icon: WandSparkles }
+  { href: "/vr", label: "VR", icon: WandSparkles },
+  { href: "/pricing", label: "Pricing", icon: CreditCard },
+  { href: "/team", label: "Team", icon: Users }
 ];
 
 export async function SiteNav() {

@@ -375,8 +375,8 @@ export default async function LandingPage() {
             <Card>
               <CardHeader>
                 <WandSparkles className="h-8 w-8 text-lime-200" />
-                <CardTitle>Pricing-ready</CardTitle>
-                <CardDescription>Free training now, ready for team plans, interview packs, private leaderboards, and enterprise analytics.</CardDescription>
+                <CardTitle>Startup-ready pricing</CardTitle>
+                <CardDescription>Start free, upgrade to Pro for the core arena, or unlock Elite, Team, and Enterprise training systems.</CardDescription>
               </CardHeader>
               <CardContent>
                 <Button asChild variant="secondary">
@@ -425,12 +425,12 @@ export default async function LandingPage() {
             <Card>
               <CardHeader>
                 <Crown className="h-8 w-8 text-yellow-200" />
-                <CardTitle>Pricing-ready foundation</CardTitle>
-                <CardDescription>Free individual training today. Ready for teams, private ladders, interview packs, secure runner capacity, and enterprise analytics.</CardDescription>
+                <CardTitle>Monetization without pay-to-win</CardTitle>
+                <CardDescription>Plans unlock coaching depth, challenge access, analytics, teams, and VR. XP and mastery stay earned.</CardDescription>
               </CardHeader>
               <CardContent>
                 <Button asChild>
-                  <Link href="/signup">Start Training</Link>
+                  <Link href="/pricing">Choose Your Plan</Link>
                 </Button>
               </CardContent>
             </Card>

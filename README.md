@@ -34,6 +34,10 @@ Contributors and coding agents should follow [AGENTS.md](./AGENTS.md) before cha
 - Persisted Arena run history and boss-stage progress/attempt tracking
 - Safe local mock judge plus production Docker-runner architecture notes
 - 580 seeded challenge definitions across 18 categories and 5 difficulty tiers, including type-specific validation metadata
+- Startup-ready pricing system with Free, Starter, Pro, Elite, Team, and Enterprise plans
+- Stripe Checkout, Customer Portal, webhook foundation, subscription state, usage counters, and sales-lead capture
+- Server-enforced entitlements for challenge difficulty, monthly challenge attempts, Genie limits, Arena, boss battles, and VR access
+- Billing settings, contact-sales, enterprise, team, admin billing, and admin sales-leads surfaces
 - Genie assistant provider abstraction with mock and OpenAI-compatible providers
 - Voice input and speech output where browser APIs are available
 - WebXR-ready VR page with fallback 3D coding room
@@ -74,6 +78,26 @@ OPENAI_COMPATIBLE_BASE_URL="https://api.openai.com/v1"
 OPENAI_COMPATIBLE_MODEL="gpt-4.1-mini"
 ```
 
+Optional Stripe billing:
+
+```bash
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_..."
+STRIPE_SECRET_KEY="sk_test_..."
+STRIPE_WEBHOOK_SECRET="whsec_..."
+STRIPE_STARTER_MONTHLY_PRICE_ID="price_..."
+STRIPE_STARTER_YEARLY_PRICE_ID="price_..."
+STRIPE_PRO_MONTHLY_PRICE_ID="price_..."
+STRIPE_PRO_YEARLY_PRICE_ID="price_..."
+STRIPE_ELITE_MONTHLY_PRICE_ID="price_..."
+STRIPE_ELITE_YEARLY_PRICE_ID="price_..."
+STRIPE_TEAM_MONTHLY_PRICE_ID="price_..."
+STRIPE_TEAM_YEARLY_PRICE_ID="price_..."
+BILLING_REQUIRE_STRIPE="false"
+```
+
+Paid buttons gracefully show a setup message until Stripe keys and price IDs are configured. Set `BILLING_REQUIRE_STRIPE=true` only when production billing must fail fast without Stripe.
+
 ## Database Setup
 
 Start Postgres:
@@ -100,7 +124,7 @@ npm run db:migrate
 npm run db:seed
 ```
 
-The seed creates 18 categories, 580 challenges, 16 learning paths, 7 boss battles, quests, achievements, badges, shop items, and demo users.
+The seed creates 18 categories, 580 challenges, 16 learning paths, 7 boss battles, quests, achievements, badges, shop items, subscription plans, demo subscriptions, usage counters, a demo team, sales lead data, and demo users.
 
 To refresh only the investor-demo data without rebuilding the challenge catalog:
 
@@ -191,10 +215,32 @@ The `/vr` route uses React Three Fiber and browser WebXR APIs:
 
 Supported command examples include "read the problem", "give me a hint", "run my code", "submit answer", "explain this error", "open next challenge", "switch to interview mode", and "exit VR".
 
+## Pricing and Billing
+
+Pricing is centralized in `src/lib/billing/plans.ts`.
+
+- Free: $0/month, Easy access, 25 challenge attempts/month, 3 Genie messages/day
+- Starter: $9/month or $90/year, Easy + Medium, 150 attempts/month, daily habit-building
+- Pro: $19/month or $190/year, standard unlimited practice, Hard access, boss battles, Arena, advanced Genie
+- Elite: $39/month or $390/year, Extreme/Insane, full immersive mode, high-limit Genie, advanced analytics
+- Team: $29/user/month or $290/user/year, minimum 3 seats, team dashboard and analytics foundation
+- Enterprise: custom, private paths, custom packs, SSO-ready architecture, contracts, and support
+
+Billing routes:
+
+- `POST /api/billing/checkout`
+- `POST /api/billing/portal`
+- `GET /api/billing/status`
+- `GET /api/billing/usage`
+- `POST /api/stripe/webhook`
+- `POST /api/sales-leads`
+
+Stripe never runs from client-provided price IDs. The server maps plan and interval to environment variable price IDs.
+
 ## Key Routes
 
 - `/` landing page
-- `/about`, `/pricing`
+- `/about`, `/pricing`, `/enterprise`, `/contact-sales`
 - `/onboarding`, `/onboarding/calibration`, `/onboarding/path`
 - `/dashboard`
 - `/paths`, `/paths/[slug]`
@@ -203,10 +249,12 @@ Supported command examples include "read the problem", "give me a hint", "run my
 - `/boss-battles`, `/boss-battles/[slug]`
 - `/arena`
 - `/shop`
+- `/team`, `/team/members`, `/team/settings`, `/team/analytics`
 - `/leaderboard`
 - `/profile`, `/profile/[username]`, `/u/[username]`
 - `/vr`
-- `/admin`, `/admin/challenges`, `/admin/paths`, `/admin/boss-battles`, `/admin/quests`, `/admin/users`, `/admin/submissions`, `/admin/analytics`
+- `/settings`, `/settings/billing`, `/billing/success`, `/billing/cancel`
+- `/admin`, `/admin/challenges`, `/admin/paths`, `/admin/boss-battles`, `/admin/quests`, `/admin/users`, `/admin/submissions`, `/admin/analytics`, `/admin/billing`, `/admin/sales-leads`
 - APIs include `/api/arena/runs`, `/api/boss-battles/[slug]/progress`, `/api/onboarding/calibration`, and challenge run/submit/hint routes.
 
 ## Documentation
@@ -218,6 +266,11 @@ Supported command examples include "read the problem", "give me a hint", "run my
 - [VR Mode](docs/VR_MODE.md)
 - [Security](docs/SECURITY.md)
 - [Deployment](docs/DEPLOYMENT.md)
+- [Billing](docs/BILLING.md)
+- [Stripe Setup](docs/STRIPE_SETUP.md)
+- [Entitlements](docs/ENTITLEMENTS.md)
+- [Pricing Strategy](docs/PRICING_STRATEGY.md)
+- [Startup Business Model](docs/STARTUP_BUSINESS_MODEL.md)
 - [Roadmap](docs/ROADMAP.md)
 
 ## Vercel Deployment
@@ -230,6 +283,7 @@ NEXTAUTH_SECRET="generate-with-openssl-rand-base64-48"
 NEXTAUTH_URL="https://your-vercel-domain.vercel.app"
 ASSISTANT_PROVIDER="mock"
 RUNNER_PROVIDER="mock"
+NEXT_PUBLIC_APP_URL="https://your-vercel-domain.vercel.app"
 ```
 
 Then apply migrations against the target database:
@@ -250,6 +304,8 @@ See [Deployment](docs/DEPLOYMENT.md) for Vercel preview/production promotion, en
 - Submissions, assistant usage, and VR sessions produce audit/usage events for operational visibility.
 - User passwords are hashed with bcrypt.
 - Secrets are read from environment variables and never exposed to the client.
+- Stripe Checkout uses server-side price lookup; webhooks verify signatures and store processed event IDs for idempotency.
+- Usage counters enforce plan limits server-side for critical monetized features.
 - Prisma prevents SQL injection in database access.
 - Local judge blocks known destructive shell patterns and does not execute arbitrary code.
 - Production code execution belongs in an isolated runner service.
@@ -261,4 +317,6 @@ See [Deployment](docs/DEPLOYMENT.md) for Vercel preview/production promotion, en
 - Friends/social graph is architecture-ready but not fully implemented.
 - Admin create/edit forms are represented by secure APIs and management surfaces; richer inline editors for paths, bosses, quests, and shop items are the next product pass.
 - Leaderboard snapshots are modeled; scheduled snapshot generation should be added with a worker or cron.
+- Stripe products/prices and webhook endpoint must be configured in Stripe before paid checkout is truly live.
+- Team invites, CRM/email automation, invoice export UX, and SSO/SCIM are architecture-ready but not complete.
 - Voice APIs depend on browser support and user permissions.

@@ -3,6 +3,8 @@ import type { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { buildAssistantContext } from "@/lib/assistant/context";
 import { getAssistantProvider } from "@/lib/assistant/providers";
+import { getUpgradeRecommendation } from "@/lib/billing/entitlements";
+import { getUserBillingSnapshot, incrementUsageCounter } from "@/lib/billing/usage";
 import { canReachDatabase } from "@/lib/db-health";
 import { recordUsageEvent } from "@/lib/observability/events";
 import { logWarn } from "@/lib/observability/logger";
@@ -23,6 +25,20 @@ export async function POST(request: Request) {
   const parsed = assistantMessageSchema.safeParse(body);
   if (!parsed.success) {
     return Response.json({ error: "Invalid assistant message.", details: parsed.error.flatten() }, { status: 400 });
+  }
+
+  const billing = session?.user?.id ? await getUserBillingSnapshot(session.user.id) : await getUserBillingSnapshot(undefined);
+  if (session?.user?.id && !billing.canUseGenieNow) {
+    const upgrade = getUpgradeRecommendation(billing.plan.id, "genie");
+    return Response.json(
+      {
+        error: `Genie limit reached for ${billing.plan.displayName}.`,
+        upgrade,
+        usage: billing.dailyUsage,
+        limit: billing.entitlements.genieDailyMessageLimit
+      },
+      { status: 402 }
+    );
   }
 
   const dbReady = await canReachDatabase();
@@ -131,6 +147,9 @@ export async function POST(request: Request) {
       voice: parsed.data.voice ?? false
     }
   });
+  if (session?.user?.id) {
+    await incrementUsageCounter(session.user.id, "daily", "genieMessagesUsed").catch(() => null);
+  }
 
   return Response.json({ ...response, sessionId: chatSessionId });
 }

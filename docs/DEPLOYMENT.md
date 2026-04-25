@@ -12,6 +12,7 @@ NEXTAUTH_SECRET="a-long-random-secret-at-least-32-characters"
 NEXTAUTH_URL="https://your-production-domain"
 ASSISTANT_PROVIDER="mock"
 RUNNER_PROVIDER="mock"
+NEXT_PUBLIC_APP_URL="https://your-production-domain"
 ```
 
 Use `openssl rand -base64 48` to generate `NEXTAUTH_SECRET`.
@@ -21,7 +22,7 @@ For Vercel, add the variables under Project Settings -> Environment Variables fo
 ## Vercel Deployment Checklist
 
 1. Create or attach a managed PostgreSQL database.
-2. Add `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `ASSISTANT_PROVIDER`, and `RUNNER_PROVIDER`.
+2. Add `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `NEXT_PUBLIC_APP_URL`, `ASSISTANT_PROVIDER`, and `RUNNER_PROVIDER`.
 3. Run migrations against the production database:
 
 ```bash
@@ -56,6 +57,26 @@ vercel --prod
 ## Build-Time Env Behavior
 
 `next build` imports shared app frame and auth modules while collecting static page data. Gencode avoids requiring `DATABASE_URL` merely to render static logged-out chrome during build, but runtime production deployments still need real `DATABASE_URL` and a strong `NEXTAUTH_SECRET`.
+
+## Billing Deployment
+
+Paid Checkout is optional until Stripe is configured. For paid plans, also add:
+
+```bash
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_live_or_pk_test"
+STRIPE_SECRET_KEY="sk_live_or_sk_test"
+STRIPE_WEBHOOK_SECRET="whsec_..."
+STRIPE_STARTER_MONTHLY_PRICE_ID="price_..."
+STRIPE_STARTER_YEARLY_PRICE_ID="price_..."
+STRIPE_PRO_MONTHLY_PRICE_ID="price_..."
+STRIPE_PRO_YEARLY_PRICE_ID="price_..."
+STRIPE_ELITE_MONTHLY_PRICE_ID="price_..."
+STRIPE_ELITE_YEARLY_PRICE_ID="price_..."
+STRIPE_TEAM_MONTHLY_PRICE_ID="price_..."
+STRIPE_TEAM_YEARLY_PRICE_ID="price_..."
+```
+
+Set the Stripe webhook endpoint to `/api/stripe/webhook`. Keep `BILLING_REQUIRE_STRIPE=false` for demo deployments that should run without paid checkout. Set it to `true` only when billing must fail fast if Stripe is missing.
 
 ## Runner Deployment
 

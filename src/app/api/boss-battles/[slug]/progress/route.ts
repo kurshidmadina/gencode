@@ -2,6 +2,8 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
+import { canAccessBossBattle, getUpgradeRecommendation } from "@/lib/billing/entitlements";
+import { getUserBillingSnapshot, incrementUsageCounter } from "@/lib/billing/usage";
 import { canReachDatabase } from "@/lib/db-health";
 import { getBossBattle } from "@/lib/game/boss-battles";
 import { prisma } from "@/lib/prisma";
@@ -49,6 +51,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
 
   const bossDefinition = getBossBattle(slug);
   if (!bossDefinition) return Response.json({ error: "Boss battle not found." }, { status: 404 });
+  const billing = await getUserBillingSnapshot(session.user.id);
+  if (!canAccessBossBattle(billing.plan.id, bossDefinition.difficulty)) {
+    return Response.json(
+      {
+        error: "Boss battle progression requires Pro or higher.",
+        previewOnly: true,
+        upgrade: getUpgradeRecommendation(billing.plan.id, "boss-battle", bossDefinition.difficulty)
+      },
+      { status: 402 }
+    );
+  }
   if (parsed.data.stageIndex >= bossDefinition.stages.length) return Response.json({ error: "Unknown boss stage." }, { status: 400 });
   if (!(await canReachDatabase())) return Response.json({ error: "Database is not reachable. Boss progress cannot be saved." }, { status: 503 });
 
@@ -105,6 +118,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
 
     return [savedProgress, savedAttempt] as const;
   });
+  await incrementUsageCounter(session.user.id, "monthly", "bossBattlesAttempted").catch(() => null);
 
   return Response.json({ persisted: true, progress, attempt });
 }

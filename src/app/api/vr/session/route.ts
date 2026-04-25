@@ -1,6 +1,8 @@
 import { getServerSession } from "next-auth";
 import type { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
+import { canEnterVR, getUpgradeRecommendation } from "@/lib/billing/entitlements";
+import { getUserBillingSnapshot, incrementUsageCounter } from "@/lib/billing/usage";
 import { canReachDatabase } from "@/lib/db-health";
 import { recordUsageEvent } from "@/lib/observability/events";
 import { prisma } from "@/lib/prisma";
@@ -19,6 +21,17 @@ export async function POST(request: Request) {
   const limit = rateLimit(`vr:${session?.user?.id ?? getClientIp(request)}`, 30);
   if (!limit.allowed) return rateLimitResponse(limit.resetAt);
   if (!session?.user?.id) return Response.json({ ok: true, persisted: false });
+  const billing = await getUserBillingSnapshot(session.user.id);
+  if (!canEnterVR(billing.plan.id)) {
+    return Response.json(
+      {
+        error: "Full immersive mode requires Elite, Team, or Enterprise.",
+        previewOnly: true,
+        upgrade: getUpgradeRecommendation(billing.plan.id, "vr")
+      },
+      { status: 402 }
+    );
+  }
   if (!(await canReachDatabase())) return Response.json({ ok: true, persisted: false });
 
   const body = await request.json().catch(() => ({}));
@@ -49,6 +62,7 @@ export async function POST(request: Request) {
       persistedSessionId: vrSession.id
     }
   });
+  await incrementUsageCounter(session.user.id, "monthly", "vrSessionsUsed").catch(() => null);
 
   return Response.json({ ok: true, persisted: true, sessionId: vrSession.id });
 }

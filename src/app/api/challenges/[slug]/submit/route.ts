@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import type { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
+import { incrementUsageCounter } from "@/lib/billing/usage";
 import { canReachDatabase } from "@/lib/db-health";
 import { getUserChallengeAccess } from "@/lib/game/access";
 import { prisma } from "@/lib/prisma";
@@ -330,6 +331,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
         progressedQuests
       }
     });
+    await incrementUsageCounter(userId, "monthly", "challengesAttempted").catch(() => null);
+    if (result.status === "PASSED") {
+      await incrementUsageCounter(userId, "monthly", "challengesCompleted").catch(() => null);
+    }
 
     return Response.json({ ...result, persisted: true, reward, questProgress: { updated: progressedQuests } });
   } catch (error) {
