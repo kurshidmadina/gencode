@@ -18,6 +18,20 @@ const envSchema = z.object({
   RUNNER_PROVIDER: z.enum(["mock", "remote"]).default("mock"),
   RUNNER_SERVICE_URL: z.string().url().optional(),
   RUNNER_JOB_SECRET: z.string().optional(),
+  NEXT_PUBLIC_APP_URL: z.string().url().optional(),
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().optional(),
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_STARTER_MONTHLY_PRICE_ID: z.string().optional(),
+  STRIPE_STARTER_YEARLY_PRICE_ID: z.string().optional(),
+  STRIPE_PRO_MONTHLY_PRICE_ID: z.string().optional(),
+  STRIPE_PRO_YEARLY_PRICE_ID: z.string().optional(),
+  STRIPE_ELITE_MONTHLY_PRICE_ID: z.string().optional(),
+  STRIPE_ELITE_YEARLY_PRICE_ID: z.string().optional(),
+  STRIPE_TEAM_MONTHLY_PRICE_ID: z.string().optional(),
+  STRIPE_TEAM_YEARLY_PRICE_ID: z.string().optional(),
+  BILLING_TEST_MODE: booleanEnv.default(true),
+  BILLING_REQUIRE_STRIPE: booleanEnv.default(false),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   GENCODE_STRICT_ENV: booleanEnv.default(false)
 });
@@ -53,6 +67,10 @@ export function validateServerEnv(input: NodeJS.ProcessEnv = process.env, option
 
   if (env.RUNNER_PROVIDER === "remote" && (!env.RUNNER_SERVICE_URL || !env.RUNNER_JOB_SECRET)) {
     throw new Error("RUNNER_SERVICE_URL and RUNNER_JOB_SECRET are required when RUNNER_PROVIDER=remote.");
+  }
+
+  if (env.BILLING_REQUIRE_STRIPE && (!env.STRIPE_SECRET_KEY || !env.STRIPE_WEBHOOK_SECRET)) {
+    throw new Error("STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET are required when BILLING_REQUIRE_STRIPE=true.");
   }
 
   return env;

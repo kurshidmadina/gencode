@@ -8,6 +8,7 @@ import { learningPaths } from "../src/lib/game/learning-paths";
 import { bossBattles } from "../src/lib/game/boss-battles";
 import { platformQuests } from "../src/lib/game/platform-quests";
 import { shopItems } from "../src/lib/game/shop";
+import { syncSubscriptionPlans } from "../src/lib/billing/sync-plans";
 import { DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, DEMO_USER_EMAIL, DEMO_USER_PASSWORD, seedDemoShowcase } from "./demo-showcase";
 
 nextEnv.loadEnvConfig(process.cwd());
@@ -225,6 +226,7 @@ const weeklyQuests = [
 
 async function main() {
   const passwordHash = await bcrypt.hash(DEMO_USER_PASSWORD, 12);
+  await syncSubscriptionPlans(prisma);
 
   const categoryRecords = new Map<string, string>();
   for (const [order, category] of categories.entries()) {

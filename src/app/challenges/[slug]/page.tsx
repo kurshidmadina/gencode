@@ -47,6 +47,7 @@ export default async function ChallengePage({ params, searchParams }: PageProps)
           related={related}
           locked={access.locked}
           lockReason={access.reason}
+          upgradeHref={access.upgradeHref}
           missingPrerequisites={access.missingPrerequisites}
         />
       </main>

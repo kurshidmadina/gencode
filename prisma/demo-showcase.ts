@@ -7,6 +7,8 @@ import { learningPaths } from "../src/lib/game/learning-paths";
 import { getLevelForXp } from "../src/lib/game/progression";
 import { shopItems } from "../src/lib/game/shop";
 import { categories, type Difficulty } from "../src/lib/game/types";
+import { syncSubscriptionPlans } from "../src/lib/billing/sync-plans";
+import type { PlanId } from "../src/lib/billing/plans";
 
 export const DEMO_USER_EMAIL = "demo@gencode.dev";
 export const DEMO_USER_PASSWORD = "GencodeDemo!2026";
@@ -32,6 +34,7 @@ type DemoOperator = {
   badges: string[];
   achievements: string[];
   bossStatus: "ACTIVE" | "COMPLETED" | "LOCKED";
+  planId: PlanId;
 };
 
 const demoOperators: DemoOperator[] = [
@@ -53,7 +56,8 @@ const demoOperators: DemoOperator[] = [
     accuracyBase: 86,
     badges: ["founder", "first-clear", "query-knight", "terminal-rookie", "bug-slayer"],
     achievements: ["first-blood", "sql-starter", "linux-monk", "seven-day-streak", "no-hint-hero"],
-    bossStatus: "ACTIVE"
+    bossStatus: "ACTIVE",
+    planId: "pro"
   },
   {
     email: DEMO_ADMIN_EMAIL,
@@ -73,7 +77,8 @@ const demoOperators: DemoOperator[] = [
     accuracyBase: 93,
     badges: ["founder", "insane-flame", "kernel-monk", "backend-sentinel", "insane-architect"],
     achievements: ["first-blood", "query-knight", "dsa-climber", "insane-survivor", "thirty-day-streak", "gencode-legend"],
-    bossStatus: "COMPLETED"
+    bossStatus: "COMPLETED",
+    planId: "enterprise"
   },
   {
     email: "arya@gencode.dev",
@@ -93,7 +98,8 @@ const demoOperators: DemoOperator[] = [
     accuracyBase: 92,
     badges: ["founder", "kernel-monk", "terminal-rookie", "no-hint-hero"],
     achievements: ["first-blood", "linux-monk", "seven-day-streak", "speed-solver"],
-    bossStatus: "COMPLETED"
+    bossStatus: "COMPLETED",
+    planId: "elite"
   },
   {
     email: "queryforge@gencode.dev",
@@ -113,7 +119,8 @@ const demoOperators: DemoOperator[] = [
     accuracyBase: 90,
     badges: ["founder", "query-knight", "bug-slayer"],
     achievements: ["first-blood", "sql-starter", "query-knight", "no-hint-hero"],
-    bossStatus: "ACTIVE"
+    bossStatus: "ACTIVE",
+    planId: "pro"
   },
   {
     email: "stackpilot@gencode.dev",
@@ -133,7 +140,8 @@ const demoOperators: DemoOperator[] = [
     accuracyBase: 88,
     badges: ["first-clear", "insane-flame", "bug-slayer"],
     achievements: ["first-blood", "dsa-climber", "seven-day-streak"],
-    bossStatus: "ACTIVE"
+    bossStatus: "ACTIVE",
+    planId: "pro"
   },
   {
     email: "bashvector@gencode.dev",
@@ -153,7 +161,8 @@ const demoOperators: DemoOperator[] = [
     accuracyBase: 84,
     badges: ["terminal-rookie", "kernel-monk"],
     achievements: ["first-blood", "git-survivor", "linux-monk"],
-    bossStatus: "ACTIVE"
+    bossStatus: "ACTIVE",
+    planId: "starter"
   },
   {
     email: "bughunter7@gencode.dev",
@@ -173,7 +182,8 @@ const demoOperators: DemoOperator[] = [
     accuracyBase: 82,
     badges: ["bug-slayer", "first-clear"],
     achievements: ["first-blood", "bug-hunter", "speed-solver"],
-    bossStatus: "ACTIVE"
+    bossStatus: "ACTIVE",
+    planId: "starter"
   }
 ];
 
@@ -316,6 +326,7 @@ async function ensureChatSession(prisma: PrismaClient, userId: string, challenge
 }
 
 export async function seedDemoShowcase(prisma: PrismaClient) {
+  await syncSubscriptionPlans(prisma);
   const categoriesBySlug = new Map((await prisma.category.findMany()).map((category) => [category.slug, category.id]));
   const challengesBySlug = new Map((await prisma.challenge.findMany({ select: { id: true, slug: true, categoryId: true, difficulty: true } })).map((challenge) => [challenge.slug, challenge]));
   const pathBySlug = new Map((await prisma.learningPath.findMany({ select: { id: true, slug: true } })).map((path) => [path.slug, path.id]));
@@ -371,6 +382,65 @@ export async function seedDemoShowcase(prisma: PrismaClient) {
         favoriteCategories: operator.favoriteCategories,
         skillGraph: asJson(operator.skillGraph),
         publicProfile: true
+      }
+    });
+
+    await prisma.userSubscription.upsert({
+      where: { id: `demo-sub-${operator.username}` },
+      update: {
+        planId: operator.planId,
+        status: operator.planId === "free" ? "ACTIVE" : "ACTIVE",
+        billingInterval: operator.planId === "enterprise" ? "CUSTOM" : "YEARLY",
+        currentPeriodStart: subDays(today, 12),
+        currentPeriodEnd: addDays(today, 353),
+        cancelAtPeriodEnd: false,
+        stripeCustomerId: operator.planId === "free" ? null : `cus_demo_${operator.username}`,
+        stripeSubscriptionId: operator.planId === "free" ? null : `sub_demo_${operator.username}`,
+        stripePriceId: operator.planId === "enterprise" ? null : `price_demo_${operator.planId}_yearly`
+      },
+      create: {
+        id: `demo-sub-${operator.username}`,
+        userId: user.id,
+        planId: operator.planId,
+        status: "ACTIVE",
+        billingInterval: operator.planId === "enterprise" ? "CUSTOM" : "YEARLY",
+        currentPeriodStart: subDays(today, 12),
+        currentPeriodEnd: addDays(today, 353),
+        cancelAtPeriodEnd: false,
+        stripeCustomerId: operator.planId === "free" ? null : `cus_demo_${operator.username}`,
+        stripeSubscriptionId: operator.planId === "free" ? null : `sub_demo_${operator.username}`,
+        stripePriceId: operator.planId === "enterprise" ? null : `price_demo_${operator.planId}_yearly`
+      }
+    });
+
+    await prisma.usageCounter.upsert({
+      where: { userId_periodKey: { userId: user.id, periodKey: today.toISOString().slice(0, 10) } },
+      update: {
+        genieMessagesUsed: operator.role === "ADMIN" ? 18 : 7
+      },
+      create: {
+        userId: user.id,
+        periodKey: today.toISOString().slice(0, 10),
+        genieMessagesUsed: operator.role === "ADMIN" ? 18 : 7
+      }
+    });
+    await prisma.usageCounter.upsert({
+      where: { userId_periodKey: { userId: user.id, periodKey: today.toISOString().slice(0, 7) } },
+      update: {
+        challengesAttempted: operator.completedTarget + 8,
+        challengesCompleted: operator.completedTarget,
+        vrSessionsUsed: operator.planId === "elite" || operator.planId === "enterprise" ? 3 : 0,
+        arenaRunsUsed: operator.planId === "starter" ? 1 : 4,
+        bossBattlesAttempted: operator.bossStatus === "COMPLETED" ? 4 : 1
+      },
+      create: {
+        userId: user.id,
+        periodKey: today.toISOString().slice(0, 7),
+        challengesAttempted: operator.completedTarget + 8,
+        challengesCompleted: operator.completedTarget,
+        vrSessionsUsed: operator.planId === "elite" || operator.planId === "enterprise" ? 3 : 0,
+        arenaRunsUsed: operator.planId === "starter" ? 1 : 4,
+        bossBattlesAttempted: operator.bossStatus === "COMPLETED" ? 4 : 1
       }
     });
 
@@ -593,6 +663,54 @@ export async function seedDemoShowcase(prisma: PrismaClient) {
           ]
         });
       }
+    }
+  }
+
+  const admin = await prisma.user.findUnique({ where: { email: DEMO_ADMIN_EMAIL } });
+  const demoUser = await prisma.user.findUnique({ where: { email: DEMO_USER_EMAIL } });
+  if (admin && demoUser) {
+    const team = await prisma.team.upsert({
+      where: { stripeSubscriptionId: "sub_demo_gencode_bootcamp" },
+      update: {
+        name: "Gencode Demo Cohort",
+        ownerId: admin.id,
+        planId: "team",
+        stripeCustomerId: "cus_demo_gencode_bootcamp",
+        seatLimit: 12
+      },
+      create: {
+        name: "Gencode Demo Cohort",
+        ownerId: admin.id,
+        planId: "team",
+        stripeCustomerId: "cus_demo_gencode_bootcamp",
+        stripeSubscriptionId: "sub_demo_gencode_bootcamp",
+        seatLimit: 12
+      }
+    });
+    await prisma.teamMember.upsert({
+      where: { teamId_userId: { teamId: team.id, userId: admin.id } },
+      update: { role: "OWNER" },
+      create: { teamId: team.id, userId: admin.id, role: "OWNER" }
+    });
+    await prisma.teamMember.upsert({
+      where: { teamId_userId: { teamId: team.id, userId: demoUser.id } },
+      update: { role: "MEMBER" },
+      create: { teamId: team.id, userId: demoUser.id, role: "MEMBER" }
+    });
+    const existingLead = await prisma.salesLead.findFirst({ where: { email: "ops@northstarbootcamp.dev" } });
+    if (!existingLead) {
+      await prisma.salesLead.create({
+        data: {
+          name: "Priya Raman",
+          email: "ops@northstarbootcamp.dev",
+          organization: "Northstar Bootcamp",
+          teamSize: 42,
+          useCase: "bootcamp",
+          message: "We want SQL, Linux, debugging, and DSA paths with cohort analytics and weekly boss battle events.",
+          source: "demo-seed",
+          status: "QUALIFIED"
+        }
+      });
     }
   }
 

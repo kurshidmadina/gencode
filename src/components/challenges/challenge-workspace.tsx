@@ -138,6 +138,7 @@ export function ChallengeWorkspace({
   related = [],
   locked = false,
   lockReason,
+  upgradeHref,
   missingPrerequisites = []
 }: {
   challenge: GeneratedChallenge;
@@ -146,6 +147,7 @@ export function ChallengeWorkspace({
   related?: GeneratedChallenge[];
   locked?: boolean;
   lockReason?: string;
+  upgradeHref?: string;
   missingPrerequisites?: string[];
 }) {
   const [answer, setAnswer] = useState(challenge.starterCode ?? "");
@@ -333,6 +335,11 @@ export function ChallengeWorkspace({
                 {missingPrerequisites.length > 0 ? (
                   <p className="mt-1 text-yellow-100">Missing prerequisites: {missingPrerequisites.join(", ")}</p>
                 ) : null}
+                {upgradeHref ? (
+                  <Button asChild className="mt-3" size="sm" variant="gold">
+                    <Link href={upgradeHref}>Upgrade to unlock</Link>
+                  </Button>
+                ) : null}
               </div>
             ) : null}
             <p className="text-base leading-7 text-slate-300">{challenge.story}</p>
@@ -412,8 +419,13 @@ export function ChallengeWorkspace({
                   <Lock className="mx-auto h-10 w-10 text-yellow-200" />
                   <h2 className="mt-4 text-xl font-black text-white">Clear the route first</h2>
                   <p className="mt-2 max-w-md text-sm leading-6 text-slate-400">
-                    You can read the mission brief, but the editor, hints, tests, and submit flow stay locked until progression catches up.
+                    You can read the mission brief, but the editor, hints, tests, and submit flow stay locked until progression or plan access catches up.
                   </p>
+                  {upgradeHref ? (
+                    <Button asChild className="mt-4" variant="gold">
+                      <Link href={upgradeHref}>View upgrade path</Link>
+                    </Button>
+                  ) : null}
                 </div>
               </div>
             ) : editor}

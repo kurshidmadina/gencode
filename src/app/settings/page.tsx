@@ -2,6 +2,8 @@ import { AppFrame } from "@/components/layout/app-frame";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export const metadata = {
   title: "Settings"
@@ -17,6 +19,9 @@ export default function SettingsPage() {
           <p className="mt-3 max-w-2xl leading-7 text-slate-300">
             Set your public signal, favorite arenas, and default Genie protocol so recommendations feel personal.
           </p>
+          <Button asChild className="mt-5" variant="secondary">
+            <Link href="/settings/billing">Manage Billing</Link>
+          </Button>
         </section>
         <Card>
           <CardHeader>

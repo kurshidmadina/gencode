@@ -2,6 +2,8 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
+import { canAccessArena, getUpgradeRecommendation } from "@/lib/billing/entitlements";
+import { getUserBillingSnapshot, incrementUsageCounter } from "@/lib/billing/usage";
 import { canReachDatabase } from "@/lib/db-health";
 import { arenaModes, scoreArenaRun } from "@/lib/game/arena";
 import { prisma } from "@/lib/prisma";
@@ -52,6 +54,33 @@ export async function POST(request: Request) {
 
   const mode = arenaModes.find((item) => item.slug === parsed.data.modeSlug);
   if (!mode) return Response.json({ error: "Unknown arena mode." }, { status: 404 });
+  const billing = session?.user?.id ? await getUserBillingSnapshot(session.user.id) : await getUserBillingSnapshot(undefined);
+  if (!canAccessArena(billing.plan.id)) {
+    const upgrade = getUpgradeRecommendation(billing.plan.id, "arena");
+    if (parsed.data.action === "start") {
+      return Response.json({
+        persisted: false,
+        runId: null,
+        startedAt: new Date().toISOString(),
+        previewOnly: true,
+        upgrade,
+        message: "Arena preview started locally. Upgrade to Pro for saved scores, leaderboards, and rewards."
+      });
+    }
+    const score = scoreArenaRun({
+      correct: parsed.data.correct,
+      attempted: parsed.data.attempted,
+      secondsRemaining: parsed.data.secondsRemaining,
+      hintsUsed: parsed.data.hintsUsed
+    });
+    return Response.json({
+      persisted: false,
+      ...score,
+      previewOnly: true,
+      upgrade,
+      message: "Arena preview scored locally. Upgrade to Pro to save the run and climb the Arena board."
+    });
+  }
 
   if (parsed.data.action === "start") {
     if (!session?.user?.id || !(await canReachDatabase())) {
@@ -76,6 +105,7 @@ export async function POST(request: Request) {
         } satisfies Prisma.InputJsonValue
       }
     });
+    await incrementUsageCounter(session.user.id, "monthly", "arenaRunsUsed").catch(() => null);
 
     return Response.json({ persisted: true, runId: run.id, startedAt: run.startedAt });
   }

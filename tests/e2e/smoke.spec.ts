@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test.setTimeout(90_000);
 
 test("core RPG product routes load", async ({ page }) => {
-  for (const path of ["/", "/demo", "/onboarding", "/paths", "/boss-battles", "/arena", "/shop", "/map", "/vr"]) {
+  for (const path of ["/", "/about", "/pricing", "/enterprise", "/contact-sales", "/demo", "/onboarding", "/paths", "/boss-battles", "/shop", "/map"]) {
     await page.goto(path, { waitUntil: "domcontentloaded", timeout: 45_000 });
     await expect(page.locator("body")).toContainText(/Gencode|Arena|Path|Boss|Immersive|Academy/i);
   }

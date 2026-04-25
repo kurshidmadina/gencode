@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
-import { Code2, FileSearch, LineChart, Route, ShoppingBag, Swords, Users } from "lucide-react";
+import { Code2, CreditCard, FileSearch, LineChart, Mail, Route, ShoppingBag, Swords, Users } from "lucide-react";
 import { AppFrame } from "@/components/layout/app-frame";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +18,7 @@ export const metadata = {
 
 async function getStats() {
   if (!(await canReachDatabase())) {
-    return { users: 2, challenges: challengeCatalog.length, submissions: 0, completionRate: 0, paths: learningPaths.length, bosses: bossBattles.length, shopItems: shopItems.length };
+    return { users: 2, challenges: challengeCatalog.length, submissions: 0, completionRate: 0, paths: learningPaths.length, bosses: bossBattles.length, shopItems: shopItems.length, subscriptions: 0, salesLeads: 0 };
   }
 
   try {
@@ -31,9 +31,13 @@ async function getStats() {
       prisma.bossBattle.count(),
       prisma.shopItem.count()
     ]);
-    return { users, challenges, submissions, completionRate: submissions ? Math.round((passed / submissions) * 100) : 0, paths, bosses, shopItems: shopItemCount };
+    const [subscriptions, salesLeads] = await Promise.all([
+      prisma.userSubscription.count().catch(() => 0),
+      prisma.salesLead.count().catch(() => 0)
+    ]);
+    return { users, challenges, submissions, completionRate: submissions ? Math.round((passed / submissions) * 100) : 0, paths, bosses, shopItems: shopItemCount, subscriptions, salesLeads };
   } catch {
-    return { users: 2, challenges: challengeCatalog.length, submissions: 0, completionRate: 0, paths: learningPaths.length, bosses: bossBattles.length, shopItems: shopItems.length };
+    return { users: 2, challenges: challengeCatalog.length, submissions: 0, completionRate: 0, paths: learningPaths.length, bosses: bossBattles.length, shopItems: shopItems.length, subscriptions: 0, salesLeads: 0 };
   }
 }
 
@@ -52,13 +56,18 @@ export default async function AdminPage() {
           </div>
           <div className="flex gap-2">
             <Button asChild variant="secondary"><Link href="/admin/challenges">Manage Challenges</Link></Button>
+            <Button asChild variant="secondary"><Link href="/admin/paths">Paths</Link></Button>
+            <Button asChild variant="secondary"><Link href="/admin/boss-battles">Bosses</Link></Button>
+            <Button asChild variant="secondary"><Link href="/admin/quests">Quests</Link></Button>
             <Button asChild variant="secondary"><Link href="/admin/users">Manage Users</Link></Button>
             <Button asChild variant="secondary"><Link href="/admin/submissions">Submissions</Link></Button>
             <Button asChild variant="secondary"><Link href="/admin/analytics">Analytics</Link></Button>
+            <Button asChild variant="secondary"><Link href="/admin/billing">Billing</Link></Button>
+            <Button asChild variant="secondary"><Link href="/admin/sales-leads">Sales Leads</Link></Button>
           </div>
           </div>
         </div>
-        <div className="grid gap-4 md:grid-cols-4 xl:grid-cols-7">
+        <div className="grid gap-4 md:grid-cols-4 xl:grid-cols-9">
           {([
             { Icon: Users, label: "Users", value: stats.users },
             { Icon: Code2, label: "Challenges", value: stats.challenges },
@@ -66,7 +75,9 @@ export default async function AdminPage() {
             { Icon: LineChart, label: "Completion", value: `${stats.completionRate}%` },
             { Icon: Route, label: "Paths", value: stats.paths },
             { Icon: Swords, label: "Bosses", value: stats.bosses },
-            { Icon: ShoppingBag, label: "Shop", value: stats.shopItems }
+            { Icon: ShoppingBag, label: "Shop", value: stats.shopItems },
+            { Icon: CreditCard, label: "Billing", value: stats.subscriptions },
+            { Icon: Mail, label: "Leads", value: stats.salesLeads }
           ] satisfies Array<{ Icon: LucideIcon; label: string; value: string | number }>).map(({ Icon, label, value }) => (
             <Card key={label as string}>
               <CardHeader>
